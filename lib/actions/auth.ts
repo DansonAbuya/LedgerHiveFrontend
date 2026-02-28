@@ -92,7 +92,12 @@ export async function clearAuthCookie(): Promise<void> {
 
 export async function logoutAction(): Promise<void> {
   try {
-    await axios.post(getApiUrl('/api/auth/logout'), {}, { headers: { 'Content-Type': 'application/json' } });
+    const token = await getAuthToken();
+    await axios.post(
+      getApiUrl('/api/auth/logout'),
+      token ? { token } : {},
+      { headers: { 'Content-Type': 'application/json' } }
+    );
   } catch {
     // ignore
   }

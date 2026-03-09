@@ -2,6 +2,7 @@
 
 import axios from 'axios';
 import { getApiUrl } from '@/lib/api/config';
+import { toUserFriendlyMessage } from '@/lib/errors';
 
 export type PublicInvoice = {
   id: string;
@@ -20,16 +21,11 @@ export async function getPublicInvoice(token: string): Promise<PublicInvoice | n
   }
 }
 
-export async function payPublicInvoice(token: string, amount?: number, reference?: string): Promise<boolean> {
-  try {
-    await axios.post(
-      getApiUrl(`/api/public/pay/${token}/pay`),
-      { amount, reference },
-      { headers: { 'Content-Type': 'application/json' } },
-    );
-    return true;
-  } catch {
-    return false;
-  }
+export async function payPublicInvoice(token: string, amount?: number, reference?: string): Promise<void> {
+  await axios.post(
+    getApiUrl(`/api/public/pay/${token}/pay`),
+    { amount, reference },
+    { headers: { 'Content-Type': 'application/json' } },
+  );
 }
 

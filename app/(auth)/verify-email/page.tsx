@@ -52,17 +52,17 @@ function VerifyEmailInner() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4 relative">
+    <div className="auth-screen min-h-screen min-h-dvh overflow-y-auto py-3 sm:py-4 px-3 sm:px-5 relative pb-[env(safe-area-inset-bottom)]">
       <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-10">
         <LanguageSwitcher />
       </div>
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <AppLogo size={64} />
+      <div className="w-full max-w-md mx-auto flex flex-col justify-center min-h-[calc(100vh-3rem)] sm:min-h-[calc(100vh-4rem)] pb-8">
+        <div className="text-center mb-4 sm:mb-6">
+          <div className="flex justify-center mb-2 sm:mb-3">
+            <AppLogo size={48} />
           </div>
-          <h1 className="text-3xl font-bold text-foreground">{t('auth', 'verifyEmailTitle')}</h1>
-          <p className="text-muted-foreground mt-2">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{t('auth', 'verifyEmailTitle')}</h1>
+          <p className="text-muted-foreground text-sm sm:text-base mt-2">
             {t('auth', 'verifyEmailDescription')}
           </p>
         </div>
@@ -150,7 +150,7 @@ export default function VerifyEmailPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center min-h-screen p-6">
+        <div className="auth-screen flex items-center justify-center min-h-screen min-h-dvh py-4 px-3">
           <p className="text-muted-foreground">Loading...</p>
         </div>
       }

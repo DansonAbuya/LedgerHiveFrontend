@@ -75,7 +75,7 @@ export default function RemindersPage() {
   const [activeTab, setActiveTab] = useState('templates');
 
   return (
-    <div className="space-y-6 p-6 bg-background">
+    <div className="space-y-4 p-4 sm:p-5 bg-background">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

@@ -14,9 +14,18 @@ import {
   CreditCard,
   FileText,
   ChevronRight,
+  Puzzle,
+  Clock,
+  GitBranch,
 } from 'lucide-react';
 
 const settingsSections = [
+  {
+    icon: Puzzle,
+    title: 'Modules',
+    description: 'Enable or disable Credit Issuance, Collections, and other modules',
+    href: '/settings/modules',
+  },
   {
     icon: Building,
     title: 'Organization Settings',
@@ -30,6 +39,12 @@ const settingsSections = [
     href: '/settings/users',
   },
   {
+    icon: GitBranch,
+    title: 'Credit Workflow',
+    description: 'Define adjustable credit approval steps and assignees',
+    href: '/settings/credit-workflow',
+  },
+  {
     icon: Lock,
     title: 'Security & Permissions',
     description: 'Manage access levels, API keys, and security settings',
@@ -40,6 +55,12 @@ const settingsSections = [
     title: 'Notifications',
     description: 'Configure email alerts and notification preferences',
     href: '/settings/notifications',
+  },
+  {
+    icon: Clock,
+    title: 'Payment reminders',
+    description: 'Reminder frequency (days before due) can always be adjusted by the admin; customize message and quote invoice number only',
+    href: '/settings/reminders',
   },
   {
     icon: Zap,
@@ -63,7 +84,7 @@ const settingsSections = [
 
 export default function SettingsPage() {
   return (
-    <div className="space-y-6 p-6 bg-background">
+    <div className="space-y-4 p-4 sm:p-5 bg-background">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-foreground">Settings</h1>

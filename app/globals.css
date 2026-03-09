@@ -4,7 +4,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(0.98 0.002 240);
+  --background: #f8fafc;
   --foreground: oklch(0.15 0.04 240);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.15 0.04 240);
@@ -40,7 +40,7 @@
 }
 
 .dark {
-  --background: oklch(0.12 0.03 240);
+  --background: #0f172a;
   --foreground: oklch(0.98 0.002 240);
   --card: oklch(0.15 0.04 240);
   --card-foreground: oklch(0.98 0.002 240);
@@ -115,11 +115,43 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* Application-wide background: professional gradient (no grey) */
+.app-background {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: linear-gradient(160deg, #ffffff 0%, #f8fafc 45%, #f1f5f9 100%);
+}
+.dark .app-background {
+  background: linear-gradient(160deg, #0f172a 0%, #1e293b 45%, #334155 100%);
+}
+
+/* Auth/public screens use same gradient (class optional where body already has it) */
+.auth-screen {
+  background: linear-gradient(160deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%);
+}
+.dark .auth-screen {
+  background: linear-gradient(160deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    min-height: 100vh;
+    min-height: 100dvh;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
+    min-height: 100vh;
+    min-height: 100dvh;
+    background: linear-gradient(160deg, #ffffff 0%, #f8fafc 45%, #f1f5f9 100%);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  .dark body {
+    background: linear-gradient(160deg, #0f172a 0%, #1e293b 45%, #334155 100%);
   }
 }

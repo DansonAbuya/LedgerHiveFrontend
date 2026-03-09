@@ -24,6 +24,11 @@ import {
   Menu,
   X,
   ChevronDown,
+  BadgeDollarSign,
+  Wallet,
+  Receipt,
+  FileBarChart,
+  BarChart3,
 } from 'lucide-react';
 import { AppLogo } from '@/components/AppLogo';
 import { CurrencySelector } from '@/components/CurrencySelector';
@@ -35,19 +40,37 @@ const navigationItems = [
     label: 'Dashboard',
     href: '/dashboard',
     icon: LayoutDashboard,
-    roles: ['admin', 'finance_officer', 'manager', 'collections_agent'],
+    roles: ['admin', 'operation_manager', 'collateral_manager', 'finance_officer', 'manager', 'customer'],
+  },
+  {
+    label: 'My Invoices',
+    href: '/invoices',
+    icon: FileText,
+    roles: ['customer'],
+  },
+  {
+    label: 'My Payments',
+    href: '/payments',
+    icon: CreditCard,
+    roles: ['customer'],
+  },
+  {
+    label: 'My Applications',
+    href: '/credit-applications',
+    icon: BadgeDollarSign,
+    roles: ['customer'],
   },
   {
     label: 'Customers',
     href: '/customers',
     icon: Users,
-    roles: ['admin', 'finance_officer', 'manager', 'collections_agent'],
+    roles: ['admin', 'operation_manager', 'collateral_manager', 'finance_officer', 'manager'],
   },
   {
     label: 'Invoices',
     href: '/invoices',
     icon: FileText,
-    roles: ['admin', 'finance_officer', 'manager', 'collections_agent'],
+    roles: ['admin', 'operation_manager', 'finance_officer', 'manager'],
   },
   {
     label: 'Payments',
@@ -59,7 +82,37 @@ const navigationItems = [
     label: 'Collections',
     href: '/collections',
     icon: Bell,
-    roles: ['admin', 'manager', 'collections_agent'],
+    roles: ['admin', 'manager', 'operation_manager'],
+  },
+  {
+    label: 'Credit Applications',
+    href: '/credit-applications',
+    icon: BadgeDollarSign,
+    roles: ['admin', 'operation_manager', 'collateral_manager', 'finance_officer', 'manager'],
+  },
+  {
+    label: 'Credit Accounts',
+    href: '/credit-accounts',
+    icon: Wallet,
+    roles: ['admin', 'operation_manager', 'finance_officer', 'manager'],
+  },
+  {
+    label: 'Credit Obligations',
+    href: '/credit-obligations',
+    icon: Receipt,
+    roles: ['admin', 'operation_manager', 'finance_officer', 'manager'],
+  },
+  {
+    label: 'Reports',
+    href: '/reports',
+    icon: FileBarChart,
+    roles: ['admin', 'operation_manager', 'collateral_manager', 'finance_officer', 'manager', 'customer'],
+  },
+  {
+    label: 'Analytics',
+    href: '/analytics',
+    icon: BarChart3,
+    roles: ['admin', 'operation_manager', 'collateral_manager', 'finance_officer', 'manager'],
   },
   {
     label: 'Settings',
@@ -88,24 +141,32 @@ export function AppShell({ children }: AppShellProps) {
 
   const navLabels: Record<string, string> = {
     Dashboard: t('nav', 'dashboard'),
+    'My Invoices': t('nav', 'myInvoices'),
+    'My Payments': t('nav', 'myPayments'),
+    'My Applications': t('nav', 'myApplications'),
     Customers: t('nav', 'customers'),
     Invoices: t('nav', 'invoices'),
     Payments: t('nav', 'payments'),
     Collections: t('nav', 'collections'),
+    'Credit Applications': t('nav', 'creditApplications'),
+    'Credit Accounts': t('nav', 'creditAccounts'),
+    'Credit Obligations': t('nav', 'creditObligations'),
+    Reports: t('nav', 'reports'),
+    Analytics: t('nav', 'analytics'),
     Settings: t('nav', 'settings'),
     'Audit Logs': t('nav', 'auditLogs'),
   };
 
   const visibleNavItems = navigationItems.filter(
-    (item) => user && item.roles.includes(user.role)
+    (item) => user && (item.roles.includes(user.role as string) || item.roles.includes(user.role))
   );
 
   const handleLogout = async () => {
     try {
       await logout();
-      window.location.href = '/login';
+      window.location.href = '/';
     } catch {
-      window.location.href = '/login';
+      window.location.href = '/';
     }
   };
 
@@ -114,22 +175,22 @@ export function AppShell({ children }: AppShellProps) {
   }
 
   return (
-    <div className="flex h-screen bg-background">
-      {/* Sidebar */}
+    <div className="flex h-screen h-dvh bg-transparent min-h-dvh overflow-hidden">
+      {/* Sidebar - logo and collapse fixed, nav scrollable */}
       <aside
         className={`${
           sidebarOpen ? 'w-64' : 'w-20'
-        } bg-sidebar border-r border-sidebar-border transition-all duration-300 hidden lg:flex flex-col`}
+        } bg-sidebar border-r border-sidebar-border transition-all duration-300 hidden lg:flex flex-col flex-shrink-0 min-h-0`}
       >
-        {/* Logo */}
-        <div className="p-6 border-b border-sidebar-border flex items-center justify-between">
+        {/* Logo - fixed at top */}
+        <div className="flex-shrink-0 p-6 border-b border-sidebar-border flex items-center justify-between">
           <Link href="/dashboard" className="flex items-center gap-3">
             <AppLogo size={40} showText={sidebarOpen} />
           </Link>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-2">
+        {/* Navigation - scrollable */}
+        <nav className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 space-y-2">
           {visibleNavItems.map((item) => {
             const Icon = item.icon;
             return (
@@ -147,8 +208,8 @@ export function AppShell({ children }: AppShellProps) {
           })}
         </nav>
 
-        {/* Collapse Button */}
-        <div className="p-4 border-t border-sidebar-border">
+        {/* Collapse Button - fixed at bottom */}
+        <div className="flex-shrink-0 p-4 border-t border-sidebar-border">
           <Button
             variant="ghost"
             size="icon"
@@ -160,10 +221,10 @@ export function AppShell({ children }: AppShellProps) {
         </div>
       </aside>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <header className="bg-card border-b border-border min-h-16 px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-2 sticky top-0 z-40">
+      {/* Main Content: header + scrollable body + footer */}
+      <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden">
+        {/* Header - fixed at top */}
+        <header className="flex-shrink-0 bg-card border-b border-border min-h-14 sm:min-h-16 px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-2 z-40">
           <div className="flex items-center gap-2 sm:gap-4 min-w-0">
             {/* Mobile Menu Toggle */}
             <Button
@@ -206,7 +267,7 @@ export function AppShell({ children }: AppShellProps) {
                       {user.name}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {user.role.replace('_', ' ')}
+                      {(user.role as string).replace(/_/g, ' ')}
                     </p>
                   </div>
                 </div>
@@ -234,9 +295,9 @@ export function AppShell({ children }: AppShellProps) {
           </DropdownMenu>
         </header>
 
-        {/* Mobile Sidebar */}
+        {/* Mobile Sidebar - scrollable when many items */}
         {mobileMenuOpen && (
-          <div className="lg:hidden bg-sidebar border-b border-sidebar-border p-4">
+          <div className="flex-shrink-0 lg:hidden bg-sidebar border-b border-sidebar-border p-4 max-h-[70vh] overflow-y-auto">
             <nav className="space-y-2">
               {visibleNavItems.map((item) => {
                 const Icon = item.icon;
@@ -256,10 +317,17 @@ export function AppShell({ children }: AppShellProps) {
           </div>
         )}
 
-        {/* Page Content */}
-        <main className="flex-1 overflow-auto">
+        {/* Page Content - only scrollable area */}
+        <main className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden">
           {children}
         </main>
+
+        {/* Footer - fixed at bottom */}
+        <footer className="flex-shrink-0 bg-card border-t border-border px-3 sm:px-5 py-2 sm:py-1.5 z-10">
+          <p className="text-xs text-muted-foreground">
+            © {new Date().getFullYear()} LedgerHive. All rights reserved.
+          </p>
+        </footer>
       </div>
     </div>
   );

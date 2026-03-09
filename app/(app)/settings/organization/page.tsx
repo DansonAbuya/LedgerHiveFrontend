@@ -1,13 +1,19 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, Upload, Image } from 'lucide-react';
+import { useTenant } from '@/lib/tenant-context';
+import { setTenantBrandingAction } from '@/lib/actions/tenants';
 
 export default function OrganizationSettingsPage() {
+  const { currentTenant, fetchTenants } = useTenant();
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [logoSaving, setLogoSaving] = useState(false);
   const [formData, setFormData] = useState({
     companyName: 'Acme Corporation',
     email: 'billing@acme.com',
@@ -35,8 +41,26 @@ export default function OrganizationSettingsPage() {
     setIsSaving(false);
   };
 
+  const currentLogo = logoPreview ?? (currentTenant?.brandingSettings?.logoUrl ?? null);
+
+  const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = reader.result as string;
+      setLogoPreview(dataUrl);
+      setLogoSaving(true);
+      const updated = await setTenantBrandingAction({ logoUrl: dataUrl });
+      setLogoSaving(false);
+      if (updated) await fetchTenants();
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
   return (
-    <div className="space-y-6 p-6 bg-background">
+    <div className="space-y-4 p-4 sm:p-5 bg-background">
       {/* Header */}
       <Link href="/settings">
         <Button variant="ghost" className="gap-2" size="sm">
@@ -110,6 +134,69 @@ export default function OrganizationSettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Branding / Logo — only for organizations with white labeling */}
+      {currentTenant?.whiteLabelEnabled ? (
+        <Card className="border-border">
+          <CardHeader>
+            <CardTitle>Branding & Logo</CardTitle>
+            <CardDescription>
+              Your logo appears on generated reports (PDF/Excel). Upload an image to use as your organization logo.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-4 flex-wrap">
+              {currentLogo ? (
+                <div className="flex items-center gap-3">
+                  <img
+                    src={currentLogo}
+                    alt="Organization logo"
+                    className="h-16 w-auto max-w-[200px] object-contain border border-border rounded"
+                  />
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => logoInputRef.current?.click()}
+                      disabled={logoSaving}
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      {logoSaving ? 'Saving...' : 'Change logo'}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => logoInputRef.current?.click()}
+                  disabled={logoSaving}
+                >
+                  <Image className="h-4 w-4 mr-2" />
+                  {logoSaving ? 'Saving...' : 'Upload logo'}
+                </Button>
+              )}
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleLogoChange}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="border-border">
+          <CardHeader>
+            <CardTitle>Branding & Logo</CardTitle>
+            <CardDescription>
+              Custom branding and logo on reports are available for organizations with a white labeling subscription. Contact your LedgerHive representative to enable white labeling for your organization.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
 
       {/* Address */}
       <Card className="border-border">

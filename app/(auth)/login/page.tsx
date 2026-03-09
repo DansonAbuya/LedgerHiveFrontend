@@ -9,7 +9,6 @@ import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertCircle, Loader2 } from 'lucide-react';
-import { AppLogo } from '@/components/AppLogo';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { useI18n } from '@/lib/i18n-context';
 
@@ -42,16 +41,14 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4 sm:p-6 relative">
-      <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-10">
+    <div className="auth-screen min-h-screen min-h-dvh overflow-y-auto py-3 sm:py-4 px-3 sm:px-5 relative pb-[env(safe-area-inset-bottom)]">
+      <div className="absolute top-4 left-3 right-3 sm:top-6 sm:right-6 sm:left-6 z-10 flex items-center justify-between gap-2 min-h-[44px]">
+        <Link href="/" className="text-sm text-muted-foreground hover:text-foreground underline py-2 min-h-[44px] flex items-center">
+          {t('auth', 'backToHome')}
+        </Link>
         <LanguageSwitcher />
       </div>
-      <div className="w-full max-w-md min-w-0">
-        {/* Logo */}
-        <div className="flex justify-center mb-8">
-          <AppLogo size={80} />
-        </div>
-
+      <div className="w-full max-w-md min-w-0 mx-auto flex flex-col justify-center min-h-[calc(100vh-3rem)] sm:min-h-[calc(100vh-4rem)] pt-12 sm:pt-14">
         {/* Login Card */}
         <Card className="border-border">
           <CardHeader>
@@ -121,7 +118,7 @@ function LoginForm() {
               </Button>
             </form>
 
-            <div className="mt-6 space-y-4">
+            <div className="mt-3 sm:mt-4 space-y-2 sm:space-y-3">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-border"></div>
@@ -158,7 +155,7 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+      <div className="auth-screen min-h-screen min-h-dvh flex items-center justify-center py-4 px-4">
         <div className="text-muted-foreground">Loading...</div>
       </div>
     }>

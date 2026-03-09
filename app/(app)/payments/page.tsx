@@ -15,6 +15,7 @@ import { Search, Plus, MoreVertical, Eye, DollarSign, TrendingUp, AlertCircle } 
 import { getPaymentsAction, recordPaymentAction, type Payment } from '@/lib/actions/payments';
 import { getInvoicesAction, type Invoice } from '@/lib/actions/invoices';
 import { useCurrency } from '@/lib/currency-context';
+import { useAuth } from '@/lib/auth-context';
 
 const statusColors: Record<string, string> = {
   Completed: 'bg-green-100 text-green-800',
@@ -26,7 +27,9 @@ const statusColors: Record<string, string> = {
 };
 
 export default function PaymentsPage() {
+  const { user } = useAuth();
   const { formatAmountWithCode } = useCurrency();
+  const isCustomer = user?.role === 'customer';
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -54,10 +57,12 @@ export default function PaymentsPage() {
   useEffect(() => {
     (async () => {
       await loadPayments();
-      const inv = await getInvoicesAction(0, 200);
-      setInvoices(inv.content ?? []);
+      if (!isCustomer) {
+        const inv = await getInvoicesAction(0, 200);
+        setInvoices(inv.content ?? []);
+      }
     })();
-  }, []);
+  }, [isCustomer]);
 
   const filtered = payments.filter((p) => {
     const matchSearch =
@@ -82,7 +87,7 @@ export default function PaymentsPage() {
       : '0';
 
   return (
-    <div className="space-y-6 p-6 bg-background">
+    <div className="space-y-4 p-3 sm:p-5 bg-background min-w-0">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Payments</h1>

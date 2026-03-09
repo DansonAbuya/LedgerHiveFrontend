@@ -15,9 +15,9 @@ export function IdleLogout() {
   const handleLogout = useCallback(async () => {
     try {
       await logout();
-      router.push('/login?reason=inactive');
+      router.push('/?reason=inactive');
     } catch {
-      router.push('/login?reason=inactive');
+      router.push('/?reason=inactive');
     }
   }, [logout, router]);
 

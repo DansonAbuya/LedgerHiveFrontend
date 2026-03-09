@@ -12,7 +12,8 @@ export function isExcelFile(file: File): boolean {
 
 export interface InvoiceRow {
   customerId: string;
-  amount: number;
+  /** Amount can be omitted in Excel; UI may auto-fill from customer balance. */
+  amount: number | null;
   dueDate: string;
 }
 
@@ -47,14 +48,15 @@ export function parseExcelInvoices(buffer: ArrayBuffer): InvoiceRow[] {
   return parseSheetToRows(workbook, (row) => {
     const customerId = String(row['customerid'] ?? row['customer id'] ?? row['customer_id'] ?? '').trim();
     const amountRaw = row['amount'] ?? row['amount (kes)'] ?? row['amount(kes)'];
-    const amount = typeof amountRaw === 'number' ? amountRaw : Number(String(amountRaw).replace(/[^0-9.-]/g, '')) || 0;
+    const parsed = typeof amountRaw === 'number' ? amountRaw : Number(String(amountRaw).replace(/[^0-9.-]/g, ''));
+    const amount = Number.isFinite(parsed) && parsed > 0 ? parsed : null;
     let dueDate = String(row['duedate'] ?? row['due date'] ?? row['due_date'] ?? '').trim();
     const dueNum = row['duedate'] ?? row['due date'] ?? row['due_date'];
     if (typeof dueNum === 'number' && dueNum > 0) {
       const date = new Date((dueNum - 25569) * 86400 * 1000);
       if (!isNaN(date.getTime())) dueDate = date.toISOString().slice(0, 10);
     }
-    if (!customerId || amount <= 0 || !dueDate) return null;
+    if (!customerId || !dueDate) return null;
     return { customerId, amount, dueDate };
   });
 }

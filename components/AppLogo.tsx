@@ -3,6 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import { useI18n } from '@/lib/i18n-context';
+import { useTenant } from '@/lib/tenant-context';
 
 interface AppLogoProps {
   /** Size of the logo in pixels (width and height). Default 40. */
@@ -15,16 +16,30 @@ interface AppLogoProps {
 
 export function AppLogo({ size = 40, showText = false, className = '' }: AppLogoProps) {
   const { t } = useI18n();
+  const { currentTenant } = useTenant();
+  const logoUrl = currentTenant?.effectiveBranding?.logoUrl ?? '/logo.png';
+  const isDataUrl = logoUrl.startsWith('data:');
+
   return (
     <div className={`flex items-center gap-3 ${className}`}>
-      <Image
-        src="/logo.png"
-        alt={t('app', 'ledgerHive')}
-        width={size}
-        height={size}
-        className="rounded-lg object-contain"
-        priority
-      />
+      {isDataUrl ? (
+        <img
+          src={logoUrl}
+          alt={t('app', 'ledgerHive')}
+          width={size}
+          height={size}
+          className="rounded-lg object-contain"
+        />
+      ) : (
+        <Image
+          src={logoUrl}
+          alt={t('app', 'ledgerHive')}
+          width={size}
+          height={size}
+          className="rounded-lg object-contain"
+          priority
+        />
+      )}
       {showText && (
         <span className="font-bold text-sidebar-foreground text-lg">{t('app', 'ledgerHive')}</span>
       )}

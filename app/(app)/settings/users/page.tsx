@@ -11,25 +11,24 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ArrowLeft, Plus, MoreVertical, Edit, Trash2, Shield, Copy, Check } from 'lucide-react';
-import { getUsersAction, inviteUserAction, type AdminUser } from '@/lib/actions/users';
+import { getUsersAction, inviteUserAction, setUserPortalEnabledAction, type AdminUser } from '@/lib/actions/users';
+import { toUserFriendlyMessage } from '@/lib/errors';
+import { ROLES, ROLE_LABELS, ROLE_DESCRIPTIONS, canInviteUsers, CAN_MANAGE_PORTAL_ACCESS, isPortalGatedRole, type Role } from '@/lib/roles';
+import { useAuth } from '@/lib/auth-context';
 import { Input } from '@/components/ui/input';
 
-const roleDescriptions = {
-  admin: 'Full system access, manage users and settings',
-  finance_officer: 'View and manage invoices and payments',
-  collections_agent: 'Handle collections and reminders',
-  manager: 'View reports and manage team members',
-};
-
 export default function UserManagementPage() {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteName, setInviteName] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<'admin' | 'finance_officer' | 'collections_agent' | 'manager'>('finance_officer');
+  const [inviteRole, setInviteRole] = useState<Role>('customer');
+  const [togglingPortalId, setTogglingPortalId] = useState<string | null>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteSetPasswordLink, setInviteSetPasswordLink] = useState<string | null>(null);
+  const [lastInvitedRole, setLastInvitedRole] = useState<Role | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
 
   useEffect(() => {
@@ -67,22 +66,23 @@ export default function UserManagementPage() {
         setUsers((prev) => [...prev, created]);
         setInviteName('');
         setInviteEmail('');
-        setInviteRole('finance_officer');
+        setInviteRole(currentUser?.role === 'operation_manager' ? 'customer' : 'operation_manager');
         setInviteOpen(false);
         if (typeof window !== 'undefined') {
           const params = new URLSearchParams();
           if (created.email) params.set('email', created.email);
           if (created.tenantId) params.set('tenantId', created.tenantId);
           setInviteSetPasswordLink(`${window.location.origin}/set-password?${params.toString()}`);
+          setLastInvitedRole(created.role as Role);
         }
       }
     } catch (err) {
-      setInviteError(err instanceof Error ? err.message : 'Failed to invite user');
+      setInviteError(toUserFriendlyMessage(err, 'Could not invite user. Please try again.'));
     }
   };
 
   return (
-    <div className="space-y-6 p-6 bg-background">
+    <div className="space-y-4 p-4 sm:p-5 bg-background">
       {/* Header */}
       <Link href="/settings">
         <Button variant="ghost" className="gap-2" size="sm">
@@ -95,6 +95,9 @@ export default function UserManagementPage() {
         <div className="rounded-lg border border-border bg-muted/50 p-4 space-y-3">
           <p className="text-sm text-foreground">
             <strong>User invited.</strong> An OTP has been sent to their email. They must set their password using the link below before signing in.
+            {lastInvitedRole === 'customer' && (
+              <> Enable their portal (in the table above) so they can log in after setting their password.</>
+            )}
           </p>
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-medium text-muted-foreground shrink-0">Set password link:</span>
@@ -113,7 +116,7 @@ export default function UserManagementPage() {
               {copiedLink ? <Check size={14} /> : <Copy size={14} />}
             </Button>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => setInviteSetPasswordLink(null)}>
+          <Button variant="ghost" size="sm" onClick={() => { setInviteSetPasswordLink(null); setLastInvitedRole(null); }}>
             Dismiss
           </Button>
         </div>
@@ -123,16 +126,18 @@ export default function UserManagementPage() {
         <div>
           <h1 className="text-3xl font-bold text-foreground">User Management</h1>
           <p className="text-muted-foreground mt-2">
-            Manage team members and their permissions
+            Admin adds staff (they can always log in). Operation Manager adds customers; a set-password link is sent. Admin or Operation Manager must enable a customer&apos;s portal for them to log in.
           </p>
         </div>
-        <Button
-          className="bg-accent hover:bg-accent/90 text-accent-foreground gap-2"
-          onClick={() => setInviteOpen(true)}
-        >
-          <Plus size={18} />
-          Invite User
-        </Button>
+        {(currentUser && canInviteUsers(currentUser.role as string)) && (
+          <Button
+            className="bg-accent hover:bg-accent/90 text-accent-foreground gap-2"
+            onClick={() => setInviteOpen(true)}
+          >
+            <Plus size={18} />
+            Invite User
+          </Button>
+        )}
       </div>
 
       {/* Users Table */}
@@ -148,29 +153,19 @@ export default function UserManagementPage() {
             {loading ? (
               <p className="text-sm text-muted-foreground py-4">Loading users...</p>
             ) : users.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4">No users yet. Invite your team above.</p>
+              <p className="text-sm text-muted-foreground py-4">
+                No users yet. {currentUser && canInviteUsers(currentUser.role as string) ? 'Invite your team above.' : 'Only admins can add users.'}
+              </p>
             ) : (
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
-                  <th className="text-left py-3 px-4 font-semibold text-foreground">
-                    Name
-                  </th>
-                  <th className="text-left py-3 px-4 font-semibold text-foreground">
-                    Email
-                  </th>
-                  <th className="text-left py-3 px-4 font-semibold text-foreground">
-                    Role
-                  </th>
-                  <th className="text-left py-3 px-4 font-semibold text-foreground">
-                    Joined
-                  </th>
-                  <th className="text-left py-3 px-4 font-semibold text-foreground">
-                    Status
-                  </th>
-                  <th className="text-center py-3 px-4 font-semibold text-foreground">
-                    Actions
-                  </th>
+                  <th className="text-left py-3 px-4 font-semibold text-foreground">Name</th>
+                  <th className="text-left py-3 px-4 font-semibold text-foreground">Email</th>
+                  <th className="text-left py-3 px-4 font-semibold text-foreground">Role</th>
+                  <th className="text-left py-3 px-4 font-semibold text-foreground">Joined</th>
+                  <th className="text-left py-3 px-4 font-semibold text-foreground">Portal</th>
+                  <th className="text-center py-3 px-4 font-semibold text-foreground">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -190,8 +185,8 @@ export default function UserManagementPage() {
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
                         <Shield size={16} className="text-accent" />
-                        <span className="text-foreground capitalize">
-                          {user.role.replace('_', ' ')}
+                        <span className="text-foreground">
+                          {ROLE_LABELS[user.role as Role] ?? (user.role as string).replace(/_/g, ' ')}
                         </span>
                       </div>
                     </td>
@@ -199,9 +194,29 @@ export default function UserManagementPage() {
                         {new Date(user.createdAt).toLocaleDateString()}
                     </td>
                     <td className="py-3 px-4">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        {user.status}
-                      </span>
+                      {isPortalGatedRole(user.role as string) ? (
+                        currentUser && CAN_MANAGE_PORTAL_ACCESS.includes(currentUser.role as Role) ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={togglingPortalId === user.id}
+                            onClick={async () => {
+                              setTogglingPortalId(user.id);
+                              const ok = await setUserPortalEnabledAction(user.id, !user.portalEnabled);
+                              if (ok) setUsers((prev) => prev.map((u) => u.id === user.id ? { ...u, portalEnabled: !u.portalEnabled } : u));
+                              setTogglingPortalId(null);
+                            }}
+                          >
+                            {togglingPortalId === user.id ? '…' : user.portalEnabled !== false ? 'Disable' : 'Enable'}
+                          </Button>
+                        ) : (
+                          <span className={`text-xs font-medium ${user.portalEnabled !== false ? 'text-green-600' : 'text-muted-foreground'}`}>
+                            {user.portalEnabled !== false ? 'Enabled' : 'Disabled'}
+                          </span>
+                        )
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Always</span>
+                      )}
                     </td>
                     <td className="py-3 px-4 text-center">
                       <DropdownMenu>
@@ -241,9 +256,11 @@ export default function UserManagementPage() {
       {inviteOpen && (
         <Card className="border-border">
           <CardHeader>
-            <CardTitle>Invite New User</CardTitle>
+            <CardTitle>{currentUser?.role === 'operation_manager' ? 'Add Customer / Applicant' : 'Invite New User'}</CardTitle>
             <CardDescription>
-              A temporary password will be emailed to the user. They will be required to change it on first login.
+              {currentUser?.role === 'operation_manager'
+                ? 'Add a customer or applicant. A set-password link will be sent to their email. Enable their portal (above) so they can log in after setting their password.'
+                : 'Admin can add staff (they can always log in) or customers. Customers need their portal enabled by Admin or Operation Manager. An OTP and set-password link are sent to their email.'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -275,19 +292,16 @@ export default function UserManagementPage() {
                 <select
                   className="w-full border border-border rounded-md bg-background px-3 py-2 text-sm"
                   value={inviteRole}
-                  onChange={(e) =>
-                    setInviteRole(e.target.value as 'admin' | 'finance_officer' | 'collections_agent' | 'manager')
-                  }
+                  onChange={(e) => setInviteRole(e.target.value as Role)}
                 >
-                  <option value="admin">Admin</option>
-                  <option value="finance_officer">Finance Officer</option>
-                  <option value="collections_agent">Collections Agent</option>
-                  <option value="manager">Manager</option>
+                  {(currentUser?.role === 'operation_manager' ? (['customer'] as const) : ROLES).map((r) => (
+                    <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                  ))}
                 </select>
               </div>
               <div className="flex gap-2">
                 <Button type="submit" className="bg-accent hover:bg-accent/90 text-accent-foreground">
-                  Send Invite
+                  {currentUser?.role === 'operation_manager' ? 'Add customer & send link' : 'Send Invite'}
                 </Button>
                 <Button type="button" variant="outline" onClick={() => setInviteOpen(false)}>
                   Cancel
@@ -303,17 +317,15 @@ export default function UserManagementPage() {
         <CardHeader>
           <CardTitle>Available Roles</CardTitle>
           <CardDescription>
-            Permission levels for team members
+            Staff (added by Admin) can always log in. Customers (added by Operation Manager) receive a set-password link; Admin or Operation Manager must enable their portal for them to log in.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {Object.entries(roleDescriptions).map(([role, description]) => (
+            {ROLES.map((role) => (
               <div key={role} className="border border-border rounded-lg p-4">
-                <h4 className="font-semibold text-foreground capitalize mb-1">
-                  {role.replace('_', ' ')}
-                </h4>
-                <p className="text-sm text-muted-foreground">{description}</p>
+                <h4 className="font-semibold text-foreground mb-1">{ROLE_LABELS[role]}</h4>
+                <p className="text-sm text-muted-foreground">{ROLE_DESCRIPTIONS[role]}</p>
               </div>
             ))}
           </div>

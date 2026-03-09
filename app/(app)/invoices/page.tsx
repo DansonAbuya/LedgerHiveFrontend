@@ -19,13 +19,17 @@ import {
   Download,
   Upload,
   Filter,
+  Send,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { createInvoiceAction, getInvoicesAction, type Invoice } from '@/lib/actions/invoices';
+import { createInvoiceAction, getInvoicesAction, sendInvoiceAction, type Invoice } from '@/lib/actions/invoices';
 import { createPaymentLinkAction } from '@/lib/actions/payment-links';
-import { getCustomersAction, type Customer } from '@/lib/actions/customers';
+import { getCustomerBalanceAction, getCustomersAction, type Customer, type CustomerBalance } from '@/lib/actions/customers';
 import { isExcelFile, parseExcelInvoices } from '@/lib/excel-import';
+import { toUserFriendlyMessage } from '@/lib/errors';
 import { useCurrency } from '@/lib/currency-context';
+import { useAlert } from '@/lib/alert-context';
+import { useAuth } from '@/lib/auth-context';
 
 const statusColors: Record<string, string> = {
   Paid: 'bg-green-100 text-green-800',
@@ -35,6 +39,8 @@ const statusColors: Record<string, string> = {
 };
 
 export default function InvoicesPage() {
+  const { user } = useAuth();
+  const { showAlert } = useAlert();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -42,6 +48,9 @@ export default function InvoicesPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [selectedBalance, setSelectedBalance] = useState<CustomerBalance | null>(null);
+  const [balanceLoading, setBalanceLoading] = useState(false);
+  const [amountEdited, setAmountEdited] = useState(false);
   const [createForm, setCreateForm] = useState({
     customerId: '',
     amount: '',
@@ -50,22 +59,62 @@ export default function InvoicesPage() {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+  const [sendingInvoiceId, setSendingInvoiceId] = useState<string | null>(null);
   const { formatAmountWithCode } = useCurrency();
+  const isCustomer = user?.role === 'customer';
 
   useEffect(() => {
     (async () => {
       try {
-        const [invRes, custRes] = await Promise.all([
-          getInvoicesAction(0, 500),
-          getCustomersAction(0, 500),
-        ]);
+        const invRes = await getInvoicesAction(0, 500);
         setInvoices(invRes.content ?? []);
-        setCustomers(custRes.content ?? []);
+        if (!isCustomer) {
+          const custRes = await getCustomersAction(0, 500);
+          setCustomers(custRes.content ?? []);
+        }
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [isCustomer]);
+
+  useEffect(() => {
+    if (!createOpen) {
+      setSelectedBalance(null);
+      setAmountEdited(false);
+      return;
+    }
+    if (!createForm.customerId) {
+      setSelectedBalance(null);
+      setAmountEdited(false);
+      return;
+    }
+    let cancelled = false;
+    setBalanceLoading(true);
+    (async () => {
+      try {
+        const b = await getCustomerBalanceAction(createForm.customerId);
+        if (!cancelled) setSelectedBalance(b);
+      } finally {
+        if (!cancelled) setBalanceLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [createOpen, createForm.customerId]);
+
+  // Auto-fill amount when customer balance is known.
+  // Rule: strictly remainingCredit only (when credit limit exists).
+  useEffect(() => {
+    if (!createOpen) return;
+    if (!selectedBalance) return;
+    if (amountEdited) return;
+    const candidate =
+      selectedBalance.remainingCredit != null ? Number(selectedBalance.remainingCredit) : NaN;
+    if (!Number.isFinite(candidate) || candidate <= 0) return;
+    setCreateForm((f) => ({ ...f, amount: String(candidate) }));
+  }, [createOpen, selectedBalance, amountEdited]);
 
   const filteredInvoices = invoices.filter((inv) => {
     const matchSearch =
@@ -97,16 +146,16 @@ export default function InvoicesPage() {
   }
 
   return (
-    <div className="space-y-6 p-4 sm:p-6 bg-background">
+    <div className="space-y-4 p-3 sm:p-5 bg-background min-w-0">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Invoices</h1>
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Invoices</h1>
           <p className="text-muted-foreground mt-2">
             Track and manage all customer invoices
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Dialog open={importOpen} onOpenChange={(open) => { setImportOpen(open); setImportError(null); setImportFile(null); }}>
             <DialogTrigger asChild>
               <Button
@@ -163,14 +212,24 @@ export default function InvoicesPage() {
                       const buffer = await importFile.arrayBuffer();
                       const rows = parseExcelInvoices(buffer);
                       if (rows.length === 0) {
-                        setImportError('No valid rows found. Ensure columns: CustomerId, Amount, DueDate.');
+                        setImportError('No valid rows found. Ensure columns: CustomerId, DueDate. Amount is optional.');
                         return;
                       }
                       let createdCount = 0;
                       for (const row of rows) {
+                        const amount =
+                          row.amount != null
+                            ? row.amount
+                            : (await (async () => {
+                                const b = await getCustomerBalanceAction(row.customerId);
+                                const candidate =
+                                  b?.remainingCredit != null ? Number(b.remainingCredit) : NaN;
+                                return Number.isFinite(candidate) && candidate > 0 ? candidate : null;
+                              })());
+                        if (amount == null) continue;
                         const created = await createInvoiceAction({
                           customerId: row.customerId,
-                          amount: row.amount,
+                          amount,
                           dueDate: row.dueDate,
                         });
                         if (created) {
@@ -184,7 +243,7 @@ export default function InvoicesPage() {
                         setImportError(`Created ${createdCount} of ${rows.length} invoices. Some rows may have been skipped.`);
                       }
                     } catch (err) {
-                      setImportError(err instanceof Error ? err.message : 'Failed to parse Excel file.');
+                      setImportError(toUserFriendlyMessage(err, 'Could not import file. Please check the format and try again.'));
                     } finally {
                       setImporting(false);
                     }
@@ -196,14 +255,14 @@ export default function InvoicesPage() {
             </DialogContent>
           </Dialog>
 
-          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+          <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) { setSelectedBalance(null); setAmountEdited(false); } }}>
             <DialogTrigger asChild>
               <Button className="bg-accent hover:bg-accent/90 text-accent-foreground gap-2">
                 <Plus size={18} />
                 Create Invoice
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-lg">
               <DialogHeader>
                 <DialogTitle>Create invoice</DialogTitle>
               </DialogHeader>
@@ -213,7 +272,7 @@ export default function InvoicesPage() {
                   <select
                     className="w-full border border-border rounded-md bg-background px-3 py-2 text-sm"
                     value={createForm.customerId}
-                    onChange={(e) => setCreateForm((f) => ({ ...f, customerId: e.target.value }))}
+                    onChange={(e) => { setAmountEdited(false); setCreateForm((f) => ({ ...f, customerId: e.target.value })); }}
                   >
                     <option value="">Select a customer</option>
                     {customers.map((c) => (
@@ -222,6 +281,27 @@ export default function InvoicesPage() {
                       </option>
                     ))}
                   </select>
+                  <div className="text-xs text-muted-foreground">
+                    {balanceLoading && createForm.customerId ? 'Loading customer balance…' : null}
+                    {!balanceLoading && selectedBalance ? (
+                      <div className="mt-1 space-y-1">
+                        <div>
+                          Outstanding:{' '}
+                          <span className="font-medium">
+                            {formatAmountWithCode(Number(selectedBalance.outstanding))}
+                          </span>
+                        </div>
+                        {selectedBalance.creditLimit != null ? (
+                          <div>
+                            Remaining credit:{' '}
+                            <span className="font-medium">
+                              {formatAmountWithCode(Number(selectedBalance.remainingCredit ?? 0))}
+                            </span>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-foreground">Amount</label>
@@ -229,7 +309,7 @@ export default function InvoicesPage() {
                     type="number"
                     min="0"
                     value={createForm.amount}
-                    onChange={(e) => setCreateForm((f) => ({ ...f, amount: e.target.value }))}
+                    onChange={(e) => { setAmountEdited(true); setCreateForm((f) => ({ ...f, amount: e.target.value })); }}
                     placeholder="1000"
                   />
                 </div>
@@ -459,14 +539,31 @@ export default function InvoicesPage() {
                                   await navigator.clipboard.writeText(url);
                                   // optional: toast could be added here
                                 } catch {
-                                  window.alert(`Payment link: ${url}`);
+                                  showAlert(url, 'Payment link');
                                 }
                               }}
                             >
                               <Download size={16} className="mr-2" />
                               Copy Payment Link
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={async () => {
+                                setSendingInvoiceId(invoice.id);
+                                try {
+                                  await sendInvoiceAction(invoice.id);
+                                  // success - optionally toast
+                                } catch (e) {
+                                  showAlert(toUserFriendlyMessage(e, 'Could not send the invoice. Please try again.'), 'Send invoice');
+                                } finally {
+                                  setSendingInvoiceId(null);
+                                }
+                              }}
+                              disabled={sendingInvoiceId === invoice.id}
+                            >
+                              <Send size={16} className="mr-2" />
+                              {sendingInvoiceId === invoice.id ? 'Sending…' : 'Send Invoice'}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem disabled>
                               <Download size={16} className="mr-2" />
                               Download PDF
                             </DropdownMenuItem>

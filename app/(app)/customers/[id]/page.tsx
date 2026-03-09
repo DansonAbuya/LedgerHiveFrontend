@@ -72,7 +72,7 @@ export default function CustomerDetailPage() {
   const customerId = params.id;
 
   return (
-    <div className="space-y-6 p-6 bg-background">
+    <div className="space-y-4 p-4 sm:p-5 bg-background">
       {/* Header */}
       <div className="flex items-center justify-between">
         <Link href="/customers">
@@ -94,7 +94,7 @@ export default function CustomerDetailPage() {
       </div>
 
       {/* Customer Header */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-2 border-border">
           <CardContent className="pt-6">
             <div className="flex items-start justify-between">

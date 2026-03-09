@@ -2,16 +2,20 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { loginAction, signupAction, logoutAction, setAuthCookie, getCurrentUserAction, changePasswordAction, type User as ApiUser } from '@/lib/actions/auth';
+import { toUserFriendlyMessage } from '@/lib/errors';
+
+import type { Role } from '@/lib/roles';
 
 export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'admin' | 'finance_officer' | 'collections_agent' | 'manager';
+  role: Role | string;
   tenantId: string;
   createdAt: Date;
   updatedAt: Date;
   mustChangePassword: boolean;
+  portalEnabled?: boolean;
 }
 
 export interface AuthContextType {
@@ -20,7 +24,7 @@ export interface AuthContextType {
   error: string | null;
   isAuthenticated: boolean;
   login: (email: string, password: string, tenantId?: string | null) => Promise<User>;
-  signup: (email: string, password: string, name: string, organizationName: string) => Promise<void>;
+  signup: (email: string, password: string, name: string, organizationName: string, modules?: string[]) => Promise<void>;
   logout: () => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
 }
@@ -33,6 +37,7 @@ function toUser(api: ApiUser): User {
     email: api.email,
     name: api.name,
     role: (api.role as User['role']) || 'manager',
+    portalEnabled: (api as { portalEnabled?: boolean }).portalEnabled,
     tenantId: api.tenantId,
     createdAt: new Date(api.createdAt),
     updatedAt: new Date(api.updatedAt),
@@ -75,21 +80,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(userObj);
       return userObj;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      setError(toUserFriendlyMessage(err, 'Unable to sign in. Please try again.'));
       throw err;
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const signup = useCallback(async (email: string, password: string, name: string, organizationName: string) => {
+  const signup = useCallback(async (email: string, password: string, name: string, organizationName: string, modules?: string[]) => {
     setLoading(true);
     setError(null);
     try {
-      await signupAction(email, password, name, organizationName);
+      await signupAction(email, password, name, organizationName, modules);
       // Do not auto-login; user must verify email first using OTP
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Signup failed');
+      setError(toUserFriendlyMessage(err, 'Unable to create account. Please try again.'));
       throw err;
     } finally {
       setLoading(false);
@@ -117,7 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const apiUser = await getCurrentUserAction();
       if (apiUser) setUser(toUser(apiUser));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to change password');
+      setError(toUserFriendlyMessage(err, 'Could not update password. Please try again.'));
       throw err;
     } finally {
       setLoading(false);

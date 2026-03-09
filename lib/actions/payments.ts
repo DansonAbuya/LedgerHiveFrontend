@@ -3,6 +3,7 @@
 import axios from 'axios';
 import { getApiUrl } from '@/lib/api/config';
 import { getAuthToken } from './auth';
+import { toUserFriendlyMessage } from '@/lib/errors';
 
 export type Payment = {
   id: string;
@@ -32,11 +33,11 @@ export async function getPaymentsAction(page = 0, size = 50): Promise<PaymentsPa
       { headers: { Authorization: `Bearer ${token}` } }
     );
     return data;
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (axios.isAxiosError(err) && (err.response?.status === 401 || err.response?.status === 403)) {
       return { content: [], totalElements: 0, totalPages: 0, number: 0, size: 0 };
     }
-    throw err;
+    throw new Error(toUserFriendlyMessage(err, 'Could not load payments. Please try again.'));
   }
 }
 
@@ -65,10 +66,10 @@ export async function recordPaymentAction(input: {
       },
     );
     return data;
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (axios.isAxiosError(err) && (err.response?.status === 401 || err.response?.status === 403)) {
       return null;
     }
-    throw err;
+    throw new Error(toUserFriendlyMessage(err, 'Could not record payment. Please try again.'));
   }
 }

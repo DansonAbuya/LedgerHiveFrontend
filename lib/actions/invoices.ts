@@ -3,6 +3,7 @@
 import axios from 'axios';
 import { getApiUrl } from '@/lib/api/config';
 import { getAuthToken } from './auth';
+import { toUserFriendlyMessage } from '@/lib/errors';
 
 export type Invoice = {
   id: string;
@@ -32,11 +33,34 @@ export async function getInvoicesAction(page = 0, size = 50): Promise<InvoicesPa
       { headers: { Authorization: `Bearer ${token}` } }
     );
     return data;
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (axios.isAxiosError(err) && (err.response?.status === 401 || err.response?.status === 403)) {
       return { content: [], totalElements: 0, totalPages: 0, number: 0, size: 0 };
     }
-    throw err;
+    throw new Error(toUserFriendlyMessage(err, 'Could not load invoices. Please try again.'));
+  }
+}
+
+export async function sendInvoiceAction(invoiceId: string): Promise<boolean> {
+  const token = await getAuthToken();
+  if (!token) return false;
+  try {
+    await axios.post(
+      getApiUrl(`/api/v1/invoices/${invoiceId}/send`),
+      { ttlMinutes: 60 },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+    return true;
+  } catch (err: unknown) {
+    if (axios.isAxiosError(err) && (err.response?.status === 401 || err.response?.status === 403)) {
+      return false;
+    }
+    throw new Error(toUserFriendlyMessage(err, 'Could not send the invoice email. Please try again.'));
   }
 }
 
@@ -65,10 +89,10 @@ export async function createInvoiceAction(input: {
       },
     );
     return data;
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (axios.isAxiosError(err) && (err.response?.status === 401 || err.response?.status === 403)) {
       return null;
     }
-    throw err;
+    throw new Error(toUserFriendlyMessage(err, 'Could not create the invoice. Please try again.'));
   }
 }

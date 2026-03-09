@@ -19,7 +19,7 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="space-y-6 p-6 bg-background">
+    <div className="space-y-4 p-4 sm:p-5 bg-background">
       <Link href="/settings">
         <Button variant="ghost" className="gap-2" size="sm">
           <ArrowLeft size={16} />

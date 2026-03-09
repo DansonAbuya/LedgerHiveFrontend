@@ -6,6 +6,9 @@ import { AuthProvider } from '@/lib/auth-context';
 import { TenantProvider } from '@/lib/tenant-context';
 import { CurrencyProvider } from '@/lib/currency-context';
 import { I18nProvider } from '@/lib/i18n-context';
+import { BrandingStyles } from '@/components/BrandingStyles';
+import { PwaInstallPrompt } from '@/components/PwaInstallPrompt';
+import { AlertProvider } from '@/lib/alert-context';
 
 const _geist = Geist({ subsets: ['latin'] });
 const _geistMono = Geist_Mono({ subsets: ['latin'] });
@@ -18,13 +21,20 @@ export const metadata: Metadata = {
     icon: '/logo.png',
     apple: '/logo.png',
   },
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'LedgerHive',
+  },
 };
 
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  maximumScale: 5,
+  userScalable: true,
+  themeColor: '#1e293b',
 };
 
 export default function RootLayout({
@@ -38,9 +48,13 @@ export default function RootLayout({
         <AuthProvider>
           <I18nProvider>
             <TenantProvider>
+              <BrandingStyles />
               <CurrencyProvider>
-                {children}
-                <Analytics />
+                <AlertProvider>
+                  {children}
+                  <PwaInstallPrompt />
+                  <Analytics />
+                </AlertProvider>
               </CurrencyProvider>
             </TenantProvider>
           </I18nProvider>

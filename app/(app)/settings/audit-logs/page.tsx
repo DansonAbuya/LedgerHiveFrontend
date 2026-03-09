@@ -34,7 +34,7 @@ export default function AuditLogsPage() {
 
   if (!user || user.role !== 'admin') {
     return (
-      <div className="p-6">
+      <div className="p-4 sm:p-5">
         <p className="text-sm text-muted-foreground">
           You do not have permission to view audit logs.
         </p>
@@ -44,14 +44,14 @@ export default function AuditLogsPage() {
 
   if (loading) {
     return (
-      <div className="p-6">
+      <div className="p-4 sm:p-5">
         <p className="text-sm text-muted-foreground">Loading audit logs...</p>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-4 sm:p-5 space-y-3">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Audit Logs</h1>
         <p className="text-muted-foreground mt-1 text-sm">

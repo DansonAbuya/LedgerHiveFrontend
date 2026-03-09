@@ -3,6 +3,7 @@
 import axios from 'axios';
 import { cookies } from 'next/headers';
 import { getApiUrl } from '@/lib/api/config';
+import { toUserFriendlyMessage } from '@/lib/errors';
 
 const AUTH_COOKIE = 'ledgerhive_token';
 
@@ -18,15 +19,6 @@ export type User = {
 };
 
 export type AuthResult = { user: User; token: string };
-
-function getErrorMessage(err: any, fallback: string): string {
-  if (!err?.response?.data) return fallback;
-  const d = err.response.data as Record<string, unknown>;
-  const msg = d.message ?? d.error ?? d.msg ?? d.detail;
-  if (typeof msg === 'string') return msg;
-  if (Array.isArray(msg)) return msg[0] && typeof msg[0] === 'string' ? msg[0] : fallback;
-  return fallback;
-}
 
 /**
  * Login. When tenantId is provided (e.g. from invite link ?tenantId=xxx), backend should
@@ -50,26 +42,29 @@ export async function loginAction(
       { headers: { 'Content-Type': 'application/json' } }
     );
     return { user: data.user, token: data.token };
-  } catch (err: any) {
-    const msg = axios.isAxiosError(err) ? getErrorMessage(err, 'Login failed') : 'Login failed';
-    throw new Error(msg);
+  } catch (err) {
+    throw new Error(toUserFriendlyMessage(err, 'Invalid email or password. Please try again.'));
   }
 }
 
-export async function signupAction(email: string, password: string, name: string, organizationName: string): Promise<AuthResult> {
+export async function signupAction(
+  email: string,
+  password: string,
+  name: string,
+  organizationName: string,
+  modules?: string[],
+): Promise<AuthResult> {
   try {
+    const body: Record<string, unknown> = { email, password, name, organizationName };
+    if (modules != null && modules.length > 0) body.modules = modules;
     const { data } = await axios.post<{ user: User; token: string }>(
       getApiUrl('/api/auth/signup'),
-      { email, password, name, organizationName },
-      { headers: { 'Content-Type': 'application/json' } }
+      body,
+      { headers: { 'Content-Type': 'application/json' } },
     );
     return { user: data.user, token: data.token };
-  } catch (err: any) {
-    if (axios.isAxiosError(err) && err.response?.data) {
-      const msg = (err.response.data as any).message ?? 'Signup failed';
-      throw new Error(msg);
-    }
-    throw new Error('Signup failed');
+  } catch (err) {
+    throw new Error(toUserFriendlyMessage(err, 'Unable to create account. Please try again.'));
   }
 }
 
@@ -129,12 +124,8 @@ export async function verifyEmailAction(email: string, code: string): Promise<vo
       { email, code },
       { headers: { 'Content-Type': 'application/json' } }
     );
-  } catch (err: any) {
-    if (axios.isAxiosError(err) && err.response?.data) {
-      const msg = (err.response.data as any).message ?? 'Verification failed';
-      throw new Error(msg);
-    }
-    throw new Error('Verification failed');
+  } catch (err) {
+    throw new Error(toUserFriendlyMessage(err, 'Invalid or expired verification code. Please try again.'));
   }
 }
 
@@ -158,9 +149,8 @@ export async function setPasswordWithOtpAction(
       { headers: { 'Content-Type': 'application/json' } }
     );
     return { user: data.user, token: data.token };
-  } catch (err: any) {
-    const msg = axios.isAxiosError(err) ? getErrorMessage(err, 'Invalid or expired code') : 'Invalid or expired code';
-    throw new Error(msg);
+  } catch (err) {
+    throw new Error(toUserFriendlyMessage(err, 'Invalid or expired code. Please check the code and try again.'));
   }
 }
 
@@ -178,7 +168,7 @@ export async function setPasswordWithOtpAndLoginAction(
 
 export async function changePasswordAction(currentPassword: string, newPassword: string): Promise<void> {
   const token = await getAuthToken();
-  if (!token) throw new Error('Not authenticated');
+  if (!token) throw new Error('Please sign in to continue.');
   try {
     await axios.post(
       getApiUrl('/api/auth/change-password'),
@@ -190,11 +180,7 @@ export async function changePasswordAction(currentPassword: string, newPassword:
         },
       }
     );
-  } catch (err: any) {
-    if (axios.isAxiosError(err) && err.response?.data) {
-      const msg = (err.response.data as any).message ?? 'Failed to change password';
-      throw new Error(msg);
-    }
-    throw new Error('Failed to change password');
+  } catch (err) {
+    throw new Error(toUserFriendlyMessage(err, 'Could not update password. Please check your current password and try again.'));
   }
 }

@@ -15,10 +15,14 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Search, Plus, MoreVertical, Eye, Edit, Trash2, Upload } from 'lucide-react';
 import { createCustomerAction, getCustomersAction, type Customer } from '@/lib/actions/customers';
 import { isExcelFile, parseExcelCustomers } from '@/lib/excel-import';
+import { toUserFriendlyMessage } from '@/lib/errors';
 import { useCurrency } from '@/lib/currency-context';
+import { useAuth } from '@/lib/auth-context';
 
 export default function CustomersPage() {
+  const { user } = useAuth();
   const { formatAmountWithCode } = useCurrency();
+  const canAddCustomers = user?.role === 'operation_manager' || user?.role === 'admin';
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -49,7 +53,7 @@ export default function CustomersPage() {
   );
 
   return (
-    <div className="space-y-6 p-4 sm:p-6 bg-background">
+    <div className="space-y-4 p-3 sm:p-5 bg-background min-w-0">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -59,6 +63,7 @@ export default function CustomersPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          {canAddCustomers && (
           <Dialog open={importOpen} onOpenChange={(open) => { setImportOpen(open); setImportError(null); setImportFile(null); }}>
             <DialogTrigger asChild>
               <Button
@@ -140,7 +145,7 @@ export default function CustomersPage() {
                         setImportError(`Created ${createdCount} of ${rows.length} customers. Some rows may have been skipped.`);
                       }
                     } catch (err) {
-                      setImportError(err instanceof Error ? err.message : 'Failed to parse Excel file.');
+                      setImportError(toUserFriendlyMessage(err, 'Could not import file. Please check the format and try again.'));
                     } finally {
                       setImporting(false);
                     }
@@ -151,7 +156,9 @@ export default function CustomersPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          )}
 
+          {canAddCustomers && (
           <Dialog open={addOpen} onOpenChange={setAddOpen}>
             <DialogTrigger asChild>
               <Button className="bg-accent hover:bg-accent/90 text-accent-foreground gap-2">
@@ -220,6 +227,7 @@ export default function CustomersPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          )}
         </div>
       </div>
 

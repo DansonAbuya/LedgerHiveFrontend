@@ -54,10 +54,12 @@ export default function PaymentsPage() {
   useEffect(() => {
     (async () => {
       await loadPayments();
-      const inv = await getInvoicesAction(0, 200);
-      setInvoices(inv.content ?? []);
+      if (!isCustomer) {
+        const inv = await getInvoicesAction(0, 200);
+        setInvoices(inv.content ?? []);
+      }
     })();
-  }, []);
+  }, [isCustomer]);
 
   const filtered = payments.filter((p) => {
     const matchSearch =
@@ -82,7 +84,7 @@ export default function PaymentsPage() {
       : '0';
 
   return (
-    <div className="space-y-6 p-6 bg-background">
+    <div className="space-y-4 p-3 sm:p-5 bg-background min-w-0">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Payments</h1>

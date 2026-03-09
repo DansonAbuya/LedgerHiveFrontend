@@ -5,39 +5,71 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import { TrendingUp, AlertCircle, Clock, DollarSign, ArrowRight } from 'lucide-react';
+import { TrendingUp, AlertCircle, Clock, DollarSign, ArrowRight, ShieldCheck } from 'lucide-react';
 import { getInvoicesAction } from '@/lib/actions/invoices';
 import type { Invoice } from '@/lib/actions/invoices';
+import { getCreditApplicationsAction } from '@/lib/actions/credit-issuance';
+import { getUsersAction, setUserPortalEnabledAction, type AdminUser } from '@/lib/actions/users';
 import { useAuth } from '@/lib/auth-context';
 import { useCurrency } from '@/lib/currency-context';
+import { useI18n } from '@/lib/i18n-context';
 
 const COLORS = ['#00C49F', '#FFA500', '#FF8042', '#DC2626'];
 
+const CAN_ENABLE_PORTAL_ROLES = ['admin', 'operation_manager'];
+
 export default function DashboardPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [creditApps, setCreditApps] = useState<{ content: Array<{ stage?: string; assignedToRole?: string }> }>({ content: [] });
   const [loading, setLoading] = useState(true);
+  const [enablingId, setEnablingId] = useState<string | null>(null);
   const { user } = useAuth();
   const { formatAmountWithCode } = useCurrency();
+  const { t } = useI18n();
+  const canEnablePortal = user && CAN_ENABLE_PORTAL_ROLES.includes((user.role as string) ?? '');
+  const creditRole = (user?.role as string) ?? '';
+  const hasCreditWorkflowRole = ['admin', 'operation_manager', 'collateral_manager', 'finance_officer', 'manager'].includes(creditRole);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
-        const [invRes] = await Promise.all([
+        const [invRes, usersList, appsRes] = await Promise.all([
           getInvoicesAction(0, 100),
+          canEnablePortal ? getUsersAction() : Promise.resolve([]),
+          hasCreditWorkflowRole ? getCreditApplicationsAction(0, 500) : Promise.resolve({ content: [] }),
         ]);
         if (!cancelled) {
           setInvoices(invRes.content ?? []);
+          setUsers(usersList ?? []);
+          setCreditApps(appsRes ?? { content: [] });
         }
       } catch {
         if (!cancelled) setInvoices([]);
+        if (!cancelled && canEnablePortal) setUsers([]);
+        if (!cancelled && hasCreditWorkflowRole) setCreditApps({ content: [] });
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
     load();
     return () => { cancelled = true; };
-  }, []);
+  }, [canEnablePortal, hasCreditWorkflowRole]);
+
+  const pendingPortalUsers = users.filter(
+    (u) => (u.role as string) === 'customer' && u.portalEnabled === false
+  );
+
+  const myCreditQueueCount =
+    hasCreditWorkflowRole && creditRole !== 'admin'
+      ? creditApps.content.filter(
+          (a) =>
+            (a.assignedToRole?.toLowerCase() === creditRole.toLowerCase()) &&
+            a.stage !== 'RELEASED' &&
+            a.stage !== 'NOT_WORTHY'
+        ).length
+      : 0;
 
   const totalOutstanding = invoices
     .filter((i) => i.status !== 'Paid')
@@ -89,13 +121,78 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6 sm:space-y-8 p-4 sm:p-6 bg-background">
+    <div className="space-y-4 sm:space-y-6 p-3 sm:p-5 bg-background min-w-0">
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Dashboard</h1>
         <p className="text-muted-foreground mt-2">
           Welcome back! Here&apos;s an overview of your collections performance.
         </p>
       </div>
+
+      {canEnablePortal && pendingPortalUsers.length > 0 && (
+        <Card className="border-border border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20">
+          <CardHeader className="flex flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                <ShieldCheck className="size-5" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">{t('dashboard', 'enableCustomerPortalTitle')}</CardTitle>
+                <CardDescription>{t('dashboard', 'enableCustomerPortalDescription')}</CardDescription>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/settings/users">{t('dashboard', 'manageUsersLink')}</Link>
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2">
+              {pendingPortalUsers.map((u) => (
+                <li
+                  key={u.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-foreground truncate">{u.name || u.email}</p>
+                    <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={async () => {
+                      setEnablingId(u.id);
+                      try {
+                        const ok = await setUserPortalEnabledAction(u.id, true);
+                        if (ok) setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, portalEnabled: true } : x)));
+                      } finally {
+                        setEnablingId(null);
+                      }
+                    }}
+                    disabled={enablingId === u.id}
+                  >
+                    {enablingId === u.id ? t('dashboard', 'enabling') : t('dashboard', 'enablePortal')}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
+      {hasCreditWorkflowRole && myCreditQueueCount > 0 && (
+        <Card className="border-border border-blue-500/50 bg-blue-50/50 dark:bg-blue-950/20">
+          <CardHeader className="flex flex-row items-center justify-between gap-4">
+            <div>
+              <CardTitle className="text-lg">Credit applications needing your action</CardTitle>
+              <CardDescription>
+                {myCreditQueueCount} application{myCreditQueueCount !== 1 ? 's' : ''} assigned to you in the credit workflow. Review and move them to the next stage.
+              </CardDescription>
+            </div>
+            <Button asChild>
+              <Link href="/credit-applications?assignedToMe=1">Open Credit Applications</Link>
+            </Button>
+          </CardHeader>
+        </Card>
+      )}
 
       {showGettingStarted && (
         <Card className="border-border bg-muted/40">

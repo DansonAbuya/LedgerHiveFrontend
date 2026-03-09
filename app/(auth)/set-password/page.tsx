@@ -12,6 +12,7 @@ import { AppLogo } from '@/components/AppLogo';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { useI18n } from '@/lib/i18n-context';
 import { setPasswordWithOtpAndLoginAction } from '@/lib/actions/auth';
+import { toUserFriendlyMessage } from '@/lib/errors';
 
 function SetPasswordForm() {
   const searchParams = useSearchParams();
@@ -48,19 +49,19 @@ function SetPasswordForm() {
       await setPasswordWithOtpAndLoginAction(email.trim(), code.trim(), newPassword, tenantId);
       window.location.href = '/dashboard';
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Invalid or expired code');
+      setError(toUserFriendlyMessage(err, 'Invalid or expired code. Please check the code and try again.'));
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4 sm:p-6 relative">
-      <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-10">
+    <div className="min-h-screen min-h-dvh overflow-y-auto auth-screen py-3 sm:py-4 px-3 sm:px-5 relative pb-[env(safe-area-inset-bottom)]">
+      <div className="absolute top-4 right-3 sm:top-6 sm:right-6 z-10">
         <LanguageSwitcher />
       </div>
-      <div className="w-full max-w-md min-w-0">
-        <div className="flex justify-center mb-8">
-          <AppLogo size={80} />
+      <div className="w-full max-w-md min-w-0 mx-auto flex flex-col justify-center min-h-[calc(100vh-3rem)] sm:min-h-[calc(100vh-4rem)]">
+        <div className="flex justify-center mb-3 sm:mb-5">
+          <AppLogo size={56} />
         </div>
         <Card className="border-border">
           <CardHeader>
@@ -68,7 +69,7 @@ function SetPasswordForm() {
             <CardDescription>{t('auth', 'setPasswordDescription')}</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-3">
               {error && (
                 <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 flex gap-2">
                   <AlertCircle className="text-destructive flex-shrink-0" size={18} />
@@ -163,7 +164,7 @@ function SetPasswordForm() {
 export default function SetPasswordPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+      <div className="auth-screen min-h-screen min-h-dvh flex items-center justify-center py-4 px-4">
         <div className="text-muted-foreground">Loading...</div>
       </div>
     }>

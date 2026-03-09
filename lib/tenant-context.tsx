@@ -2,6 +2,13 @@
 
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { getTenantsAction, type Tenant as ApiTenant } from '@/lib/actions/tenants';
+import { toUserFriendlyMessage } from '@/lib/errors';
+
+export interface EffectiveBranding {
+  logoUrl?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+}
 
 export interface Tenant {
   id: string;
@@ -12,6 +19,10 @@ export interface Tenant {
     primaryColor?: string;
     secondaryColor?: string;
   };
+  /** When true, organization has white labeling; branding/logo can be set and appears on reports. */
+  whiteLabelEnabled: boolean;
+  /** Resolved branding for the whole app: tenant's if white label, else platform default. */
+  effectiveBranding: EffectiveBranding;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -31,11 +42,16 @@ function toTenant(api: ApiTenant): Tenant {
   const bs = (api.brandingSettings && typeof api.brandingSettings === 'object'
     ? api.brandingSettings
     : {}) as { logoUrl?: string; primaryColor?: string; secondaryColor?: string };
+  const eff = (api.effectiveBranding && typeof api.effectiveBranding === 'object'
+    ? api.effectiveBranding
+    : {}) as EffectiveBranding;
   return {
     id: api.id,
     name: api.name,
     adminEmail: api.adminEmail,
     brandingSettings: { logoUrl: bs.logoUrl, primaryColor: bs.primaryColor, secondaryColor: bs.secondaryColor },
+    whiteLabelEnabled: Boolean(api.whiteLabelEnabled),
+    effectiveBranding: { logoUrl: eff.logoUrl ?? '/logo.png', primaryColor: eff.primaryColor, secondaryColor: eff.secondaryColor },
     createdAt: new Date(api.createdAt),
     updatedAt: new Date(api.updatedAt),
   };
@@ -58,7 +74,7 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
         setCurrentTenant(mapped[0]);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch tenants');
+      setError(toUserFriendlyMessage(err, 'Could not load organizations. Please try again.'));
     } finally {
       setLoading(false);
     }

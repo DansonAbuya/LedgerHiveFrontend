@@ -25,10 +25,25 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     }
   }, [user?.mustChangePassword, pathname, router]);
 
+  // Portal gate only for customers/applicants (added by Ops Manager). Staff (admin, operation_manager, etc.) can always log in.
+  const isCustomer = user?.role === 'customer';
+  const portalDisabled = user && isCustomer && user.portalEnabled === false;
+
   return (
     <>
       <IdleLogout />
-      <AppShell>{children}</AppShell>
+      {portalDisabled ? (
+        <div className="min-h-screen min-h-dvh flex items-center justify-center p-4">
+          <div className="max-w-md text-center space-y-4">
+            <h1 className="text-xl font-semibold text-foreground">Portal access is disabled</h1>
+            <p className="text-muted-foreground">
+              Your account does not have portal access yet. An admin or Operation Manager must enable your access. Please contact your administrator.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <AppShell>{children}</AppShell>
+      )}
     </>
   );
 }

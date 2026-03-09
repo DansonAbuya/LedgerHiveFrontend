@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { getPublicInvoice, payPublicInvoice, type PublicInvoice } from '@/lib/actions/public-payment';
+import { toUserFriendlyMessage } from '@/lib/errors';
 
 export default function PublicPayPage() {
   const params = useParams<{ token: string }>();
@@ -40,18 +41,19 @@ export default function PublicPayPage() {
     if (!invoice) return;
     setPaying(true);
     setError(null);
-    const ok = await payPublicInvoice(token, invoice.amount);
-    setPaying(false);
-    if (ok) {
+    try {
+      await payPublicInvoice(token, invoice.amount);
       setSuccess(true);
-    } else {
-      setError('We could not complete the payment. Please try again or contact support.');
+    } catch (err) {
+      setError(toUserFriendlyMessage(err, 'We could not complete the payment. Please try again or contact support.'));
+    } finally {
+      setPaying(false);
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+      <div className="min-h-screen flex items-center justify-center auth-screen p-3 sm:p-4">
         <div className="flex items-center gap-2 text-muted-foreground">
           <Loader2 className="animate-spin" size={18} />
           <span>Loading payment details...</span>
@@ -62,7 +64,7 @@ export default function PublicPayPage() {
 
   if (!invoice) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+      <div className="min-h-screen flex items-center justify-center auth-screen p-3 sm:p-4">
         <Card className="max-w-md w-full border-destructive/30">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-destructive">
@@ -79,8 +81,8 @@ export default function PublicPayPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
-      <Card className="w-full max-w-md border-border">
+    <div className="min-h-screen flex items-center justify-center auth-screen p-3 sm:p-4">
+      <Card className="w-full max-w-md border-border mx-2">
         <CardHeader className="space-y-1">
           <CardTitle className="text-xl">Pay Invoice {invoice.id}</CardTitle>
           <CardDescription>

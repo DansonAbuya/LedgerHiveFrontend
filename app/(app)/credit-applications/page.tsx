@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -63,8 +62,7 @@ export default function CreditApplicationsPage() {
   const [uploadingSignedId, setUploadingSignedId] = useState<string | null>(null);
   const [signedDocFileInputKey, setSignedDocFileInputKey] = useState(0);
   const [workflowStageLabels, setWorkflowStageLabels] = useState<Record<string, string>>({});
-  const searchParams = useSearchParams();
-  const [assignedToMeOnly, setAssignedToMeOnly] = useState(() => searchParams.get('assignedToMe') === '1');
+  const [assignedToMeOnly, setAssignedToMeOnly] = useState(false);
   const [studyForm, setStudyForm] = useState({
     visitDate: '',
     findings: '',
@@ -99,6 +97,12 @@ export default function CreditApplicationsPage() {
         setLoading(false);
       }
     })();
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    setAssignedToMeOnly(params.get('assignedToMe') === '1');
   }, []);
 
   const role = (user?.role as string) ?? '';

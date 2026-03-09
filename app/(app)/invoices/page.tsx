@@ -39,6 +39,7 @@ const statusColors: Record<string, string> = {
 };
 
 export default function InvoicesPage() {
+  const { user } = useAuth();
   const { showAlert } = useAlert();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,6 +61,7 @@ export default function InvoicesPage() {
   const [importing, setImporting] = useState(false);
   const [sendingInvoiceId, setSendingInvoiceId] = useState<string | null>(null);
   const { formatAmountWithCode } = useCurrency();
+  const isCustomer = user?.role === 'customer';
 
   useEffect(() => {
     (async () => {

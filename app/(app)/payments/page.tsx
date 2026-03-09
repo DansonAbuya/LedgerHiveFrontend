@@ -15,6 +15,7 @@ import { Search, Plus, MoreVertical, Eye, DollarSign, TrendingUp, AlertCircle } 
 import { getPaymentsAction, recordPaymentAction, type Payment } from '@/lib/actions/payments';
 import { getInvoicesAction, type Invoice } from '@/lib/actions/invoices';
 import { useCurrency } from '@/lib/currency-context';
+import { useAuth } from '@/lib/auth-context';
 
 const statusColors: Record<string, string> = {
   Completed: 'bg-green-100 text-green-800',
@@ -26,7 +27,9 @@ const statusColors: Record<string, string> = {
 };
 
 export default function PaymentsPage() {
+  const { user } = useAuth();
   const { formatAmountWithCode } = useCurrency();
+  const isCustomer = user?.role === 'customer';
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
